@@ -1,12 +1,45 @@
 import Pyro4
+import threading
+import time
+
 
 nombre = input("Cual es tu nombre? ")
 
 ns = Pyro4.locateNS(host="localhost", port=9090)
 uri = ns.lookup("subastas.central")
 servidor = Pyro4.Proxy(uri)
+servidor.registrar_cliente(nombre)
 
 print("\nConectado a la sala de subastas.")
+
+
+# NUEVO: consulta cada 2 segundos sin interrumpir el menu original.
+def actualizar_pujas():
+    # Cada hilo usa su propio Proxy para no compartir la conexion.
+    conexion = Pyro4.Proxy(uri)
+    ultimo_precio, _, _ = conexion.get_datos_puja()
+
+    while True:
+        time.sleep(2)
+        try:
+            precio, postor, finalizo = conexion.get_datos_puja()
+            if precio != ultimo_precio:
+                print(f"\n[ACTUALIZACION] {postor} ofrece ${precio:.2f}")
+                ultimo_precio = precio
+
+            if finalizo:
+                print("\n[AVISO] Subasta finalizada.")
+                print(conexion.get_consultar())
+                break
+        except Pyro4.errors.CommunicationError:
+            print("\n[AVISO] No se pudo consultar al servidor.")
+            break
+
+    conexion._pyroRelease()
+
+
+hilo = threading.Thread(target=actualizar_pujas, daemon=True)
+hilo.start()
 
 while True:
     try:
@@ -48,5 +81,8 @@ while True:
         else:
             print("\nOpcion no valida. Intenta de nuevo.")
 
-    except ValueError:
-        print("\nError: Introduce un numero valido para la puja.")
+    except ValueError as error:
+        print(f"\nError: {error}")
+    except Pyro4.errors.CommunicationError:
+        print("\nError: No se pudo conectar con el servidor.")
+        break
