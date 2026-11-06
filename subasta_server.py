@@ -2,6 +2,7 @@ import Pyro4
 import random
 import time
 import threading
+import math
 
 
 @Pyro4.expose
@@ -17,10 +18,11 @@ class SubastaServer:
         self.inicio_subasta = time.time()
         self.duracion_total = 60  # Duracion de la subasta en segundos
 
-        # NUEVO: protege la puja si dos clientes ofertan al mismo tiempo.
+        # Cambios necesarios para el caso: concurrencia y clientes registrados.
         self.bloqueo = threading.Lock()
+        self.clientes = []
 
-        # NUEVO: al terminar el tiempo mostramos el ganador en el servidor.
+        # Anuncia al ganador automaticamente a los 60 segundos.
         threading.Timer(self.duracion_total, self.mostrar_ganador).start()
 
     def _obtener_tiempo_restante(self):
@@ -31,13 +33,29 @@ class SubastaServer:
     def get_product(self):
         return self.producto
 
+    def registrar_cliente(self, nombre):
+        if not isinstance(nombre, str) or not nombre.strip():
+            raise ValueError("Ingresa un nombre valido.")
+        with self.bloqueo:
+            if nombre not in self.clientes:
+                self.clientes.append(nombre)
+        return "Cliente registrado."
+
+    def get_datos_puja(self):
+        # Datos cortos para que el cliente detecte cambios por polling.
+        with self.bloqueo:
+            finalizo = self._obtener_tiempo_restante() == 0
+            return self.puja_mas_alta, self.mejor_postor, finalizo
+
     def get_consultar(self):
         with self.bloqueo:
-            if time.time() - self.inicio_subasta >= self.duracion_total:
+            if self._obtener_tiempo_restante() == 0:
+                resultado = "No hubo ganador."
+                if self.mejor_postor != "Nadie":
+                    resultado = f"Ganador: {self.mejor_postor}"
                 return (
                     f"\nFINALIZADO\nProducto: {self.producto}\n"
-                    f"Ganador: {self.mejor_postor}\n"
-                    f"Puja final: ${self.puja_mas_alta:.2f}"
+                    f"{resultado}\nPuja final: ${self.puja_mas_alta:.2f}"
                 )
 
             return (
@@ -48,19 +66,24 @@ class SubastaServer:
             )
 
     def ofertar_puja(self, nombre, nueva_puja):
-        # NUEVO: validar el tipo sin detener el servicio.
+        if not isinstance(nombre, str) or not nombre.strip():
+            raise ValueError("Nombre invalido.")
         if not isinstance(nueva_puja, (int, float)):
             raise ValueError("Monto invalido.")
+        if not math.isfinite(nueva_puja):
+            raise ValueError("La puja debe ser un numero finito.")
 
+        # El bloqueo evita condiciones de carrera entre clientes.
         with self.bloqueo:
-            if time.time() - self.inicio_subasta >= self.duracion_total:
+            if self._obtener_tiempo_restante() == 0:
                 return "SUBASTA TERMINADA"
 
             if nueva_puja <= self.puja_mas_alta:
-                return "Tu puja debe superar la puja mas alta actual."
+                raise ValueError("La puja debe superar el monto actual.")
 
-            self.puja_mas_alta = nueva_puja
+            self.puja_mas_alta = float(nueva_puja)
             self.mejor_postor = nombre
+            print(f"Nueva puja: {nombre} - ${nueva_puja:.2f}")
             return "Puja aceptada."
 
     def mostrar_ganador(self):
