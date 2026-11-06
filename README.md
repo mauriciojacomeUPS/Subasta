@@ -1,38 +1,33 @@
-# Sistema de subastas Pyro4 (modificaciones minimas)
+# Subasta con Pyro4
 
-Mantiene `SubastaServer`, `get_product`, `get_consultar`, `ofertar_puja` y el registro `subastas.central`.
+Proyecto de subastas distribuido. Se conserva el cliente original casi linea por linea y los nombres de los metodos del servidor: `SubastaServer`, `get_product`, `get_consultar`, `ofertar_puja`. El fragmento del servidor compartido en el chat estaba cortado despues de `get_product`, por lo que los metodos siguientes se completaron sin disponer de su codigo original.
 
-## Cambios respecto al original
+## Cambios minimos
 
-1. `__init__` correcto (dos guiones bajos a cada lado).
-2. El servidor imprime el ganador automaticamente al cumplirse 60 segundos.
-3. `get_consultar()` incluye `FINALIZADO`, el ganador y el precio final.
-4. `threading.Lock()` evita que dos clientes cambien el precio simultaneamente.
-5. En el cliente, al terminar al intentar ofertar, se vuelve a consultar el resultado.
+- Corregido `_init_` a `__init__` para que Python inicialice el servidor.
+- Se agrego `threading.Timer` para imprimir quien gano al cumplirse los 60 segundos.
+- Se agrego `threading.Lock` para proteger las ofertas simultaneas.
+- Al finalizar, `get_consultar()` muestra el ganador y la puja final.
+- En el cliente solo se agrego una consulta del resultado si una oferta llega al final de la subasta.
 
-## Ubuntu (en la carpeta de los archivos)
+## Ejecutar en Ubuntu
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip
+sudo apt install python3 python3-venv python3-pip -y
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Abrir terminales nuevas y activar el entorno (`source .venv/bin/activate`) en cada una:
+En tres o cuatro terminales dentro de la carpeta del proyecto, activar `.venv` y ejecutar, en este orden:
 
 ```bash
-# Terminal 1
 python -m Pyro4.naming -n localhost
-# Terminal 2
 python subasta_server.py
-# Terminal 3
 python subasta_client.py
-# Terminal 4
 python subasta_client.py
 ```
 
-Ingresar un nombre diferente en cada cliente. Usar opcion 1 para ofertar y 2 para actualizar; la subasta termina a los 60 segundos de arrancar el servidor. El temporizador imprime el resultado en el servidor automaticamente, y los clientes lo ven al consultar de nuevo.
+La subasta dura 60 segundos desde que se inicia el servidor. Para ver el resultado desde un cliente que esta esperando un comando, seleccionar la opcion 2.
 
-Para demostrar concurrencia, lanzar dos ofertas en clientes diferentes a la vez. Solo se acepta la que corresponda al precio mas alto en el momento de cada solicitud.
+Nota: esta implementacion conserva el estilo educativo original. No guarda datos despues de cerrar el servidor.
