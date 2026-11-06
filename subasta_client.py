@@ -1,6 +1,5 @@
 import Pyro4
 
-
 nombre = input("Cual es tu nombre? ")
 
 ns = Pyro4.locateNS(host="localhost", port=9090)
@@ -11,10 +10,13 @@ print("\nConectado a la sala de subastas.")
 
 while True:
     try:
-        # El servidor entrega la informacion mas reciente.
+        # Consultamos el estado actual directamente al inicio del bucle
         estado = servidor.get_consultar()
+
+        # Eliminamos las lineas decorativas de arriba y abajo
         print(estado)
 
+        # Si el estado indica que ya finalizo, rompemos el bucle del cliente
         if "FINALIZADO" in estado:
             print("La subasta ha concluido. Gracias por participar.")
             break
@@ -34,19 +36,17 @@ while True:
             respuesta = servidor.ofertar_puja(nombre, nueva_puja)
             print(f"\n[SERVIDOR]: {respuesta}")
 
+            # Si la respuesta avisa que ya termino, mostramos el ganador y cerramos
             if "SUBASTA TERMINADA" in respuesta:
-                # Consultar una vez mas para mostrar el ganador.
                 print(servidor.get_consultar())
                 break
 
         elif dato == "2":
+            # Al elegir esta opcion, el bucle vuelve a iniciar y actualiza el estado automaticamente
             continue
 
         else:
             print("\nOpcion no valida. Intenta de nuevo.")
 
-    except ValueError as error:
-        print(f"\nError: {error}")
-    except Pyro4.errors.CommunicationError as error:
-        print(f"\nSe perdio la conexion con el servidor: {error}")
-        break
+    except ValueError:
+        print("\nError: Introduce un numero valido para la puja.")
